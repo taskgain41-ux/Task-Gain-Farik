@@ -1,0 +1,125 @@
+
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { translations } from '../translations';
+import { VPN } from '../types';
+
+const VPNS: VPN[] = [
+  { id: '1', name: 'Express VPN 👑', icon: '👑', price: 35, validity: '7 Days' },
+  { id: '2', name: 'Nord VPN 🥏', icon: '🥏', price: 35, validity: '7 Days' },
+  { id: '3', name: 'PIA VPN 🧃', icon: '🧃', price: 35, validity: '7 Days' },
+  { id: '4', name: 'Surfshark VPN 🍸', icon: '🍸', price: 35, validity: '7 Days' },
+  { id: '5', name: 'HMA VPN 🥑', icon: '🥑', price: 35, validity: '7 Days' },
+  { id: '6', name: 'IP Vanish VPN ⛳', icon: '⛳', price: 35, validity: '7 Days' },
+  { id: '7', name: 'Turbo VPN 🍊', icon: '🍊', price: 35, validity: '7 Days' },
+  { id: '8', name: 'Avast SecureLine ✔️', icon: '✔️', price: 35, validity: '7 Days' },
+  { id: '9', name: 'Panda VPN 🍈', icon: '🍈', price: 35, validity: '7 Days' },
+  { id: '10', name: 'CyberGhost VPN 🍋', icon: '🍋', price: 35, validity: '7 Days' },
+];
+
+const VPNStore: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const { lang, orderVpn, currentUser } = useApp();
+  const t = translations[lang];
+  const [selectedVpn, setSelectedVpn] = useState<VPN | null>(null);
+  const [txId, setTxId] = useState('');
+
+  const handleOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return alert('Login to purchase');
+    if (!selectedVpn) return;
+    orderVpn(selectedVpn.name, txId);
+    setSelectedVpn(null);
+    setTxId('');
+    alert('Payment submitted! Admin will verify and send credentials to your inbox.');
+  };
+
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      <div className="text-center">
+        <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2 flex items-center justify-center gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+          Premium VPN Store
+        </h2>
+        <p className="text-slate-500 dark:text-slate-400">Secure your connection with the best VPNs. Fixed price: ৳35 for 7 Days.</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {VPNS.map(vpn => (
+          <div key={vpn.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group" onClick={() => setSelectedVpn(vpn)}>
+            <div className="text-4xl mb-4 group-hover:scale-110 transition">{vpn.icon}</div>
+            <h4 className="font-bold text-slate-800 dark:text-white text-sm mb-1">{vpn.name}</h4>
+            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+               ৳{vpn.price} / {vpn.validity}
+            </span>
+            <div className="mt-4 opacity-0 group-hover:opacity-100 transition">
+              <span className="bg-indigo-600 dark:bg-indigo-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase">Buy Now</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedVpn && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md overflow-hidden animate-zoomIn shadow-2xl transition-colors">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-xl flex items-center gap-2 dark:text-white">
+                <span className="text-2xl">{selectedVpn.icon}</span>
+                Purchase {selectedVpn.name}
+              </h3>
+              <button onClick={() => setSelectedVpn(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition dark:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+              </button>
+            </div>
+            
+            <div className="p-8">
+              <div className="space-y-4 mb-8">
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl flex items-center gap-4 border border-indigo-100 dark:border-indigo-900/40 relative group transition-colors">
+                  <div className="bg-indigo-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-indigo-400 dark:text-indigo-400 font-bold uppercase tracking-wider">Bkash Personal</p>
+                    <p className="font-black text-indigo-900 dark:text-indigo-200 text-lg">01923361996</p>
+                  </div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl flex items-center gap-4 border border-orange-100 dark:border-orange-900/40 relative group transition-colors">
+                  <div className="bg-orange-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-orange-400 dark:text-orange-400 font-bold uppercase tracking-wider">Nagad Personal</p>
+                    <p className="font-black text-orange-900 dark:text-orange-200 text-lg">01341723065</p>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleOrder} className="space-y-6">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500 dark:text-indigo-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                    Transaction ID
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 5TRX897..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                    value={txId}
+                    onChange={(e) => setTxId(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-600 dark:hover:bg-indigo-700 transition shadow-xl flex items-center justify-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                  Confirm Payment
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default VPNStore;

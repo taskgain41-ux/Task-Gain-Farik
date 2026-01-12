@@ -1,0 +1,368 @@
+
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { translations } from '../translations';
+import { Task } from '../types';
+
+const UserDashboard: React.FC = () => {
+  const { currentUser, tasks, submissions, lang, submitTask, requestWithdrawal, withdrawals, messages, markMessageRead } = useApp();
+  const t = translations[lang];
+  const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'withdraw' | 'inbox'>('tasks');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [withAmt, setWithAmt] = useState('');
+  const [withMethod, setWithMethod] = useState<'Bkash' | 'Nagad' | 'Binance'>('Bkash');
+  const [withDetails, setWithDetails] = useState('');
+  const [withError, setWithError] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
+  const handleWith = (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = requestWithdrawal(Number(withAmt), withMethod, withDetails);
+    if (err) setWithError(err);
+    else {
+      setWithError('');
+      alert('Withdrawal requested successfully');
+    }
+  };
+
+  const handleTaskSubmit = () => {
+    if (!selectedTask) return;
+    if (selectedTask.isFileRequired && pendingFiles.length === 0) {
+      alert('This task requires a file submission (Excel/CSV).');
+      return;
+    }
+    submitTask(selectedTask.id, pendingFiles);
+    setSelectedTask(null);
+    setPendingFiles([]);
+    alert('Task submitted for review!');
+  };
+
+  const activeTasks = tasks.filter(t => t.status === 'ACTIVE');
+  const mySubmissions = submissions.filter(s => s.userEmail === currentUser?.email);
+  const myMessages = messages.filter(m => m.toEmail === currentUser?.email);
+
+  return (
+    <div className="space-y-6">
+      {/* Wallet Card */}
+      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-white/20 p-4 rounded-2xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          </div>
+          <div>
+            <p className="opacity-80 font-medium">{t.balance}</p>
+            <h2 className="text-5xl font-extrabold">৳{currentUser?.balance.toFixed(2)}</h2>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setActiveTab('withdraw')}
+            className="bg-white text-indigo-700 px-6 py-3 rounded-2xl font-bold shadow-lg shadow-black/10 hover:bg-slate-50 transition flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="m17 17-5 5-5-5"/><path d="m7 7 5-5 5 5"/></svg>
+            {t.withdraw}
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl gap-1 transition-colors">
+        {(['tasks', 'history', 'withdraw', 'inbox'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition capitalize flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
+          >
+            {tab === 'tasks' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>}
+            {tab === 'history' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>}
+            {tab === 'withdraw' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
+            {tab === 'inbox' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5C2 7 4 5 6.5 5H18c2.2 0 4 1.8 4 4v8Z"/><path d="m22 7-10 7L2 7"/></svg>}
+            {tab === 'inbox' ? `${t.inbox} (${myMessages.filter(m => !m.isRead).length})` : t[tab as keyof typeof t] || tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Area */}
+      <div className="min-h-[400px]">
+        {activeTab === 'tasks' && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeTasks.length > 0 ? activeTasks.map(task => {
+              const hasSubmitted = mySubmissions.some(s => s.taskId === task.id);
+              return (
+                <div key={task.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition group">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="font-bold text-lg text-slate-800 dark:text-white">{task.title}</h3>
+                      <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        ৳{task.reward}
+                      </span>
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 line-clamp-3">{task.description}</p>
+                    
+                    {task.isFileRequired && (
+                      <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-100 dark:border-amber-900/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        File Upload Required
+                      </div>
+                    )}
+
+                    {task.files.length > 0 && (
+                      <div className="mb-4">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block mb-2">Attached Files</span>
+                        {task.files.map((file, i) => (
+                          <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline flex items-center gap-1 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            {file.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    disabled={hasSubmitted}
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setPendingFiles([]);
+                    }}
+                    className={`w-full py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 ${hasSubmitted ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 shadow-md group-hover:bg-indigo-600 dark:group-hover:bg-indigo-500'}`}
+                  >
+                    {hasSubmitted ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                    )}
+                    {hasSubmitted ? 'Submitted' : t.submitTask}
+                  </button>
+                </div>
+              );
+            }) : (
+              <div className="col-span-full py-20 text-center text-slate-400 dark:text-slate-600">
+                <svg className="mx-auto mb-4 opacity-20" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                <p className="text-xl">{t.noTasks}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Task</th>
+                  <th className="px-6 py-4">Submitted</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Reward</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {mySubmissions.map(sub => (
+                  <tr key={sub.id} className="text-sm hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                    <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-200">Task #{sub.taskId}</td>
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 w-fit ${sub.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : sub.status === 'REJECTED' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'}`}>
+                        {sub.status === 'APPROVED' && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                        {sub.status === 'REJECTED' && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>}
+                        {sub.status === 'PENDING' && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+                        {sub.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-100">৳{sub.reward}</td>
+                  </tr>
+                ))}
+                {mySubmissions.length === 0 && (
+                  <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-400 dark:text-slate-600 italic">No task history yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'withdraw' && (
+          <div className="max-w-md mx-auto">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2 dark:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M12 2v20"/><path d="m17 17-5 5-5-5"/><path d="m7 7 5-5 5 5"/></svg>
+                {t.withdraw}
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-6 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl leading-relaxed flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                <span>
+                  {t.minimumWithdrawal}<br/>
+                  {t.serviceCharge}
+                </span>
+              </p>
+              
+              <form onSubmit={handleWith} className="space-y-6">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Amount (৳)</label>
+                  <input
+                    type="number"
+                    required
+                    min="20"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={withAmt}
+                    onChange={(e) => setWithAmt(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Method</label>
+                  <select 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={withMethod}
+                    onChange={(e) => setWithMethod(e.target.value as any)}
+                  >
+                    <option value="Bkash">Bkash</option>
+                    <option value="Nagad">Nagad</option>
+                    <option value="Binance">Binance (Pay ID / USDT)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Phone Number / ID</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={withDetails}
+                    onChange={(e) => setWithDetails(e.target.value)}
+                  />
+                </div>
+                {withError && <p className="text-rose-600 dark:text-rose-400 text-sm font-medium">{withError}</p>}
+                <button type="submit" className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-black/10 hover:bg-slate-800 dark:hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                  Submit Request
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'inbox' && (
+          <div className="space-y-4">
+            {myMessages.length > 0 ? myMessages.map(msg => (
+              <div 
+                key={msg.id} 
+                className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm cursor-pointer transition-all hover:border-indigo-200 dark:hover:border-indigo-800 ${!msg.isRead ? 'border-l-4 border-l-indigo-600 shadow-md' : ''}`}
+                onClick={() => markMessageRead(msg.id)}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    {!msg.isRead ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 dark:text-slate-500"><path d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/></svg>
+                    )}
+                    {msg.subject}
+                  </h4>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{new Date(msg.sentAt).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap pl-6">{msg.content}</p>
+              </div>
+            )) : (
+              <div className="py-20 text-center text-slate-400 dark:text-slate-600 italic flex flex-col items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="opacity-20"><path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5C2 7 4 5 6.5 5H18c2.2 0 4 1.8 4 4v8Z"/><path d="m22 7-10 7L2 7"/></svg>
+                No messages found.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Submission Modal */}
+      {selectedTask && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden animate-zoomIn shadow-2xl transition-colors">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-bold text-xl flex items-center gap-2 dark:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Submit Task
+              </h3>
+              <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition dark:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-8">
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 mb-6 border border-slate-100 dark:border-slate-700">
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Task</p>
+                <p className="font-bold text-slate-800 dark:text-white">{selectedTask.title}</p>
+                <p className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1 mt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Reward: ৳{selectedTask.reward}
+                </p>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                    {selectedTask.isFileRequired ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        Mandatory File Upload (.xlsx, .xls, .csv)
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+                        Optional Proof Upload
+                      </>
+                    )}
+                  </label>
+                  <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 dark:border-slate-700 border-dashed rounded-2xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition cursor-pointer">
+                    <div className="space-y-1 text-center">
+                      <svg className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-600" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <div className="flex text-sm text-slate-600 dark:text-slate-400 justify-center">
+                        <label className="relative cursor-pointer bg-white dark:bg-slate-800 px-2 rounded-md font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition">
+                          <span>Upload a file</span>
+                          <input 
+                            type="file" 
+                            className="sr-only" 
+                            accept=".xlsx,.xls,.csv"
+                            onChange={(e) => {
+                              if (e.target.files) {
+                                setPendingFiles(Array.from(e.target.files));
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-500">Excel or Google Sheet files up to 20MB</p>
+                    </div>
+                  </div>
+                </div>
+
+                {pendingFiles.length > 0 && (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/30 animate-fadeIn">
+                    <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-1 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                      Files ready to send:
+                    </p>
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} className="text-sm text-indigo-900 dark:text-indigo-200 truncate flex items-center gap-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                         {f.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button 
+                  onClick={handleTaskSubmit}
+                  className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-600 dark:hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                  Send & Complete Task
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default UserDashboard;

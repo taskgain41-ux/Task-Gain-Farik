@@ -1,0 +1,110 @@
+
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { translations } from '../translations';
+
+const PublicHome: React.FC = () => {
+  const { okUids, lang } = useApp();
+  const t = translations[lang];
+  const [inputUids, setInputUids] = useState('');
+  const [results, setResults] = useState<{ ok: string[], bad: string[] } | null>(null);
+
+  const handleCheck = () => {
+    const lines = inputUids.split(/[\n, ]+/).map(s => s.trim()).filter(s => s.length > 0);
+    const okSet = new Set(okUids);
+    const okList: string[] = [];
+    const badList: string[] = [];
+    
+    lines.forEach(uid => {
+      if (okSet.has(uid)) okList.push(uid);
+      else badList.push(uid);
+    });
+    
+    setResults({ ok: okList, bad: badList });
+  };
+
+  const copyOk = () => {
+    if (results) {
+      navigator.clipboard.writeText(results.ok.join('\n'));
+      alert('Copied all OK UIDs');
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white leading-tight">
+          {lang === 'en' ? 'Verify Your Game UIDs' : 'আপনার গেম ইউআইডি যাচাই করুন'}
+        </h1>
+        <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          {lang === 'en' ? 'Check if your UIDs are in our approved database in seconds.' : 'সেকেন্ডের মধ্যে আপনার ইউআইডি আমাদের অনুমোদিত ডাটাবেসে আছে কিনা পরীক্ষা করুন।'}
+        </p>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 md:p-8 border border-slate-100 dark:border-slate-800 transition-colors">
+        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          {lang === 'en' ? 'paste uid uids to check your daily report' : 'আপনার দৈনিক রিপোর্ট চেক করতে ইউআইডি পেস্ট করুন'}
+        </label>
+        <textarea
+          className="w-full h-48 p-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+          placeholder="Example: 1234567, 7654321..."
+          value={inputUids}
+          onChange={(e) => setInputUids(e.target.value)}
+        />
+        <button
+          onClick={handleCheck}
+          className="mt-6 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          {lang === 'en' ? 'Start Checking' : 'চেকিং শুরু করুন'}
+        </button>
+      </div>
+
+      {results && (
+        <div className="grid md:grid-cols-2 gap-6 animate-slideUp">
+          <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 transition-colors">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-emerald-800 dark:text-emerald-400 text-lg flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                {t.totalOk}: {results.ok.length}
+              </h3>
+              <button 
+                onClick={copyOk}
+                className="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition font-semibold flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                {t.copyAllOk}
+              </button>
+            </div>
+            <div className="max-h-60 overflow-y-auto bg-white/50 dark:bg-slate-900/50 rounded-xl p-4 font-mono text-sm text-emerald-900 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/20">
+              {results.ok.length > 0 ? results.ok.map((uid, i) => (
+                <div key={i} className="py-1 border-b border-emerald-50 dark:border-emerald-900/10 last:border-0 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  {uid}
+                </div>
+              )) : (lang === 'en' ? 'No OK IDs found' : 'কোনো সঠিক আইডি পাওয়া যায়নি')}
+            </div>
+          </div>
+
+          <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-2xl p-6 transition-colors">
+            <h3 className="font-bold text-rose-800 dark:text-rose-400 text-lg flex items-center gap-2 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600 dark:text-rose-400"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+              {t.totalBad}: {results.bad.length}
+            </h3>
+            <div className="max-h-60 overflow-y-auto bg-white/50 dark:bg-slate-900/50 rounded-xl p-4 font-mono text-sm text-rose-900 dark:text-rose-300 border border-rose-100 dark:border-rose-900/20">
+              {results.bad.length > 0 ? results.bad.map((uid, i) => (
+                <div key={i} className="py-1 border-b border-rose-50 dark:border-rose-900/10 last:border-0 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  {uid}
+                </div>
+              )) : (lang === 'en' ? 'No Bad IDs found' : 'কোনো ভুল আইডি পাওয়া যায়নি')}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PublicHome;

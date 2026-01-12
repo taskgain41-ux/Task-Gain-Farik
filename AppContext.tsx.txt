@@ -1,0 +1,249 @@
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { User, Task, Submission, Withdrawal, VPNOrder, Message, UIDRecord, Role } from '../types';
+
+interface AppState {
+  currentUser: User | null;
+  tasks: Task[];
+  submissions: Submission[];
+  withdrawals: Withdrawal[];
+  vpnOrders: VPNOrder[];
+  messages: Message[];
+  okUids: string[];
+  lang: 'en' | 'bn';
+  theme: 'light' | 'dark';
+  login: (email: string, password?: string) => boolean;
+  logout: () => void;
+  setLanguage: (l: 'en' | 'bn') => void;
+  toggleTheme: () => void;
+  // User Actions
+  submitTask: (taskId: string, files: any[]) => void;
+  requestWithdrawal: (amount: number, method: any, details: string) => string | null;
+  orderVpn: (vpnName: string, txId: string) => void;
+  markMessageRead: (id: string) => void;
+  // Admin Actions
+  createTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
+  updateTaskStatus: (id: string, status: 'ACTIVE' | 'INACTIVE') => void;
+  deleteTask: (id: string) => void;
+  reviewSubmission: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+  reviewWithdrawal: (id: string, status: 'SUCCESSFUL' | 'REJECTED') => void;
+  reviewVpnOrder: (id: string, status: 'VERIFIED' | 'REJECTED') => void;
+  sendMessage: (toEmail: string, subject: string, content: string) => void;
+  bulkAddUids: (uids: string[]) => void;
+  bulkDeleteUids: (uids: string[]) => void;
+}
+
+const AppContext = createContext<AppState | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [vpnOrders, setVpnOrders] = useState<VPNOrder[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [okUids, setOkUids] = useState<string[]>([]);
+  const [lang, setLang] = useState<'en' | 'bn'>('en');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  // Load from localStorage
+  useEffect(() => {
+    const data = {
+      user: localStorage.getItem('tg_user'),
+      tasks: localStorage.getItem('tg_tasks'),
+      subs: localStorage.getItem('tg_subs'),
+      withs: localStorage.getItem('tg_withs'),
+      vpns: localStorage.getItem('tg_vpns'),
+      msgs: localStorage.getItem('tg_msgs'),
+      uids: localStorage.getItem('tg_uids'),
+      lang: localStorage.getItem('tg_lang'),
+      theme: localStorage.getItem('tg_theme'),
+    };
+
+    if (data.user) setCurrentUser(JSON.parse(data.user));
+    if (data.tasks) setTasks(JSON.parse(data.tasks));
+    if (data.subs) setSubmissions(JSON.parse(data.subs));
+    if (data.withs) setWithdrawals(JSON.parse(data.withs));
+    if (data.vpns) setVpnOrders(JSON.parse(data.vpns));
+    if (data.msgs) setMessages(JSON.parse(data.msgs));
+    if (data.uids) setOkUids(JSON.parse(data.uids));
+    if (data.lang) setLang(data.lang as 'en' | 'bn');
+    if (data.theme) setTheme(data.theme as 'light' | 'dark');
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    localStorage.setItem('tg_user', JSON.stringify(currentUser));
+    localStorage.setItem('tg_tasks', JSON.stringify(tasks));
+    localStorage.setItem('tg_subs', JSON.stringify(submissions));
+    localStorage.setItem('tg_withs', JSON.stringify(withdrawals));
+    localStorage.setItem('tg_vpns', JSON.stringify(vpnOrders));
+    localStorage.setItem('tg_msgs', JSON.stringify(messages));
+    localStorage.setItem('tg_uids', JSON.stringify(okUids));
+    localStorage.setItem('tg_lang', lang);
+    localStorage.setItem('tg_theme', theme);
+  }, [currentUser, tasks, submissions, withdrawals, vpnOrders, messages, okUids, lang, theme]);
+
+  const login = (email: string, password?: string) => {
+    if (email === 'farik@taskgain.com') {
+      if (password === 'farik6969') {
+        const admin: User = { email, role: 'ADMIN', balance: 0, joinedAt: new Date().toISOString() };
+        setCurrentUser(admin);
+        return true;
+      }
+      return false;
+    }
+    const existingUsersRaw = localStorage.getItem('tg_all_users') || '[]';
+    const allUsers: User[] = JSON.parse(existingUsersRaw);
+    let user = allUsers.find(u => u.email === email);
+    if (!user) {
+      user = { email, role: 'USER', balance: 0, joinedAt: new Date().toISOString() };
+      allUsers.push(user);
+      localStorage.setItem('tg_all_users', JSON.stringify(allUsers));
+    }
+    setCurrentUser(user);
+    return true;
+  };
+
+  const logout = () => setCurrentUser(null);
+  const setLanguage = (l: 'en' | 'bn') => setLang(l);
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  const submitTask = (taskId: string, files: any[]) => {
+    if (!currentUser) return;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const newSub: Submission = {
+      id: Math.random().toString(36).substr(2, 9),
+      taskId,
+      userEmail: currentUser.email,
+      files: files.map(f => ({ name: f.name, url: 'https://picsum.photos/200', type: f.type })),
+      status: 'PENDING',
+      submittedAt: new Date().toISOString(),
+      reward: task.reward
+    };
+    setSubmissions(prev => [newSub, ...prev]);
+  };
+
+  const requestWithdrawal = (amount: number, method: any, details: string) => {
+    if (!currentUser) return 'Not logged in';
+    if (currentUser.balance < amount) return 'Insufficient balance';
+    if (amount < 20) return 'Minimum withdrawal 20 Taka';
+    
+    const newWith: Withdrawal = {
+      id: Math.random().toString(36).substr(2, 9),
+      userEmail: currentUser.email,
+      amount,
+      method,
+      details,
+      status: 'PENDING',
+      requestedAt: new Date().toISOString()
+    };
+    setWithdrawals(prev => [newWith, ...prev]);
+    return null;
+  };
+
+  const orderVpn = (vpnName: string, txId: string) => {
+    if (!currentUser) return;
+    const newOrder: VPNOrder = {
+      id: Math.random().toString(36).substr(2, 9),
+      userEmail: currentUser.email,
+      vpnName,
+      transactionId: txId,
+      status: 'PENDING',
+      orderedAt: new Date().toISOString()
+    };
+    setVpnOrders(prev => [newOrder, ...prev]);
+  };
+
+  const markMessageRead = (id: string) => {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, isRead: true } : m));
+  };
+
+  const createTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
+    const newTask: Task = {
+      ...taskData,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString()
+    };
+    setTasks(prev => [newTask, ...prev]);
+  };
+
+  const updateTaskStatus = (id: string, status: 'ACTIVE' | 'INACTIVE') => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const updateUserBalance = (email: string, amount: number) => {
+    const allUsers: User[] = JSON.parse(localStorage.getItem('tg_all_users') || '[]');
+    const updatedUsers = allUsers.map(u => u.email === email ? { ...u, balance: u.balance + amount } : u);
+    localStorage.setItem('tg_all_users', JSON.stringify(updatedUsers));
+    if (currentUser?.email === email) {
+      setCurrentUser(prev => prev ? { ...prev, balance: prev.balance + amount } : null);
+    }
+  };
+
+  const reviewSubmission = (id: string, status: 'APPROVED' | 'REJECTED') => {
+    const sub = submissions.find(s => s.id === id);
+    if (!sub) return;
+    setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+    if (status === 'APPROVED') {
+      updateUserBalance(sub.userEmail, sub.reward);
+      sendMessage(sub.userEmail, 'Task Approved!', `Your submission for task ID ${sub.taskId} was approved. Reward of ${sub.reward} Taka added.`);
+    }
+  };
+
+  const reviewWithdrawal = (id: string, status: 'SUCCESSFUL' | 'REJECTED') => {
+    const withdr = withdrawals.find(w => w.id === id);
+    if (!withdr) return;
+    setWithdrawals(prev => prev.map(w => w.id === id ? { ...w, status } : w));
+    if (status === 'SUCCESSFUL') {
+      updateUserBalance(withdr.userEmail, -(withdr.amount));
+    }
+  };
+
+  const reviewVpnOrder = (id: string, status: 'VERIFIED' | 'REJECTED') => {
+    const order = vpnOrders.find(o => o.id === id);
+    if (!order) return;
+    setVpnOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+  };
+
+  const sendMessage = (toEmail: string, subject: string, content: string) => {
+    const newMsg: Message = {
+      id: Math.random().toString(36).substr(2, 9),
+      toEmail,
+      subject,
+      content,
+      isRead: false,
+      sentAt: new Date().toISOString()
+    };
+    setMessages(prev => [newMsg, ...prev]);
+  };
+
+  const bulkAddUids = (uids: string[]) => {
+    setOkUids(prev => Array.from(new Set([...prev, ...uids])));
+  };
+
+  const bulkDeleteUids = (uids: string[]) => {
+    setOkUids(prev => prev.filter(uid => !uids.includes(uid)));
+  };
+
+  return (
+    <AppContext.Provider value={{
+      currentUser, tasks, submissions, withdrawals, vpnOrders, messages, okUids, lang, theme,
+      login, logout, setLanguage, toggleTheme, submitTask, requestWithdrawal, orderVpn, markMessageRead,
+      createTask, updateTaskStatus, deleteTask, reviewSubmission, reviewWithdrawal, reviewVpnOrder, sendMessage, bulkAddUids, bulkDeleteUids
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useApp must be used within AppProvider");
+  return context;
+};

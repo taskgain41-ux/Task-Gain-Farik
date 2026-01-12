@@ -1,0 +1,7 @@
+{
+  "name": "Task Gain",
+  "description": "A production-ready task management, VPN store, and financial platform with real-time updates and admin control.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

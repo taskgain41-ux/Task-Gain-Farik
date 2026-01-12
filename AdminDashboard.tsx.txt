@@ -1,0 +1,229 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { Task, Submission, Withdrawal, VPNOrder } from '../types';
+
+const AdminDashboard: React.FC = () => {
+  const { 
+    tasks, submissions, withdrawals, vpnOrders, okUids, messages,
+    createTask, updateTaskStatus, deleteTask, reviewSubmission, 
+    reviewWithdrawal, reviewVpnOrder, sendMessage, bulkAddUids, bulkDeleteUids 
+  } = useApp();
+  
+  const [activeTab, setActiveTab] = useState<'tasks' | 'submissions' | 'withdrawals' | 'vpn' | 'uids' | 'messages' | 'deploy'>('tasks');
+
+  // Task Form
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [reward, setReward] = useState('');
+  const [isFileReq, setIsFileReq] = useState(false);
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    createTask({
+      title,
+      description: desc,
+      reward: Number(reward),
+      files: [],
+      isFileRequired: isFileReq,
+      status: 'ACTIVE'
+    });
+    setTitle(''); setDesc(''); setReward(''); setIsFileReq(false);
+  };
+
+  const [uidInput, setUidInput] = useState('');
+  const [msgTarget, setMsgTarget] = useState('');
+  const [msgSub, setMsgSub] = useState('');
+  const [msgContent, setMsgContent] = useState('');
+
+  const handleSendMsg = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(msgTarget, msgSub, msgContent);
+    setMsgTarget(''); setMsgSub(''); setMsgContent('');
+    alert('Message sent!');
+  };
+
+  const exportData = () => {
+    const data = { tasks, submissions, withdrawals, vpnOrders, okUids, messages };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `taskgain_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
+  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.tasks) localStorage.setItem('tg_tasks', JSON.stringify(json.tasks));
+        if (json.submissions) localStorage.setItem('tg_subs', JSON.stringify(json.submissions));
+        if (json.withdrawals) localStorage.setItem('tg_withs', JSON.stringify(json.withdrawals));
+        if (json.vpnOrders) localStorage.setItem('tg_vpns', JSON.stringify(json.vpnOrders));
+        if (json.messages) localStorage.setItem('tg_msgs', JSON.stringify(json.messages));
+        if (json.okUids) localStorage.setItem('tg_uids', JSON.stringify(json.okUids));
+        
+        alert('Data Imported Successfully! Please refresh the page.');
+        window.location.reload();
+      } catch (err) {
+        alert('Invalid JSON file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="grid lg:grid-cols-[260px_1fr] gap-8">
+      <aside className="space-y-2">
+        {(['tasks', 'submissions', 'withdrawals', 'vpn', 'uids', 'messages', 'deploy'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition capitalize flex items-center gap-3 ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900 hover:text-slate-800 dark:hover:text-white transition-all'}`}
+          >
+             <span className="capitalize">{tab}</span>
+          </button>
+        ))}
+      </aside>
+
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-8 shadow-sm min-h-[600px]">
+        {activeTab === 'tasks' && (
+          <div className="space-y-8 animate-fadeIn">
+            <h2 className="text-2xl font-bold dark:text-white">Task Management</h2>
+            <form onSubmit={handleCreateTask} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border dark:border-slate-700">
+              <input required placeholder="Task Title" className="md:col-span-2 w-full px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={title} onChange={e => setTitle(e.target.value)} />
+              <input required placeholder="Reward (৳)" type="number" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={reward} onChange={e => setReward(e.target.value)} />
+              <div className="flex items-center gap-3"><input type="checkbox" checked={isFileReq} onChange={e => setIsFileReq(e.target.checked)} /><label className="text-sm dark:text-white">File Required</label></div>
+              <textarea required placeholder="Description" className="md:col-span-2 w-full h-32 px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={desc} onChange={e => setDesc(e.target.value)} />
+              <button type="submit" className="md:col-span-2 bg-indigo-600 text-white py-4 rounded-xl font-bold">Create Task</button>
+            </form>
+            <div className="space-y-3">
+              {tasks.map(task => (
+                <div key={task.id} className="flex justify-between p-4 border rounded-2xl dark:border-slate-800 dark:text-white items-center">
+                  <div><h4 className="font-bold">{task.title}</h4><p className="text-xs opacity-60">৳{task.reward} • {task.status}</p></div>
+                  <div className="flex gap-3">
+                    <button onClick={() => updateTaskStatus(task.id, task.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')} className="text-indigo-600 font-bold text-sm">Toggle</button>
+                    <button onClick={() => deleteTask(task.id)} className="text-rose-600 font-bold text-sm">Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'submissions' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold dark:text-white">Review Submissions</h2>
+            {submissions.map(sub => (
+              <div key={sub.id} className="p-4 border rounded-2xl dark:border-slate-800 dark:text-white flex justify-between items-center">
+                <div>
+                  <p className="font-bold">{sub.userEmail}</p>
+                  <p className="text-xs text-slate-500">Task: {sub.taskId} | Status: {sub.status}</p>
+                </div>
+                {sub.status === 'PENDING' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => reviewSubmission(sub.id, 'APPROVED')} className="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Approve</button>
+                    <button onClick={() => reviewSubmission(sub.id, 'REJECTED')} className="bg-rose-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Reject</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'withdrawals' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold dark:text-white">Review Withdrawals</h2>
+            {withdrawals.map(w => (
+              <div key={w.id} className="p-4 border rounded-2xl dark:border-slate-800 dark:text-white flex justify-between items-center">
+                <div>
+                  <p className="font-bold">৳{w.amount} to {w.userEmail}</p>
+                  <p className="text-xs text-slate-500">{w.method}: {w.details} | {w.status}</p>
+                </div>
+                {w.status === 'PENDING' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => reviewWithdrawal(w.id, 'SUCCESSFUL')} className="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Pay</button>
+                    <button onClick={() => reviewWithdrawal(w.id, 'REJECTED')} className="bg-rose-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Reject</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'uids' && (
+          <div className="space-y-4 animate-fadeIn">
+            <h2 className="text-2xl font-bold dark:text-white">UID Management</h2>
+            <textarea className="w-full h-48 p-4 border rounded-2xl dark:bg-slate-800 dark:text-white outline-none" placeholder="Paste UIDs here..." value={uidInput} onChange={e => setUidInput(e.target.value)} />
+            <div className="flex gap-4">
+              <button onClick={() => bulkAddUids(uidInput.split(/[\n, ]+/))} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Add OK</button>
+              <button onClick={() => bulkDeleteUids(uidInput.split(/[\n, ]+/))} className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-bold">Delete</button>
+            </div>
+            <p className="text-xs text-slate-500">Current OK UIDs in system: {okUids.length}</p>
+          </div>
+        )}
+
+        {activeTab === 'messages' && (
+          <div className="space-y-6 animate-fadeIn">
+             <h2 className="text-2xl font-bold dark:text-white">Send Message</h2>
+             <form onSubmit={handleSendMsg} className="space-y-4">
+               <input required placeholder="User Email" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={msgTarget} onChange={e => setMsgTarget(e.target.value)} />
+               <input required placeholder="Subject" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={msgSub} onChange={e => setMsgSub(e.target.value)} />
+               <textarea required placeholder="Message Content" className="w-full h-32 px-4 py-3 rounded-xl border dark:bg-slate-900 dark:text-white outline-none" value={msgContent} onChange={e => setMsgContent(e.target.value)} />
+               <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">Send Announcement</button>
+             </form>
+          </div>
+        )}
+
+        {activeTab === 'vpn' && (
+           <div className="space-y-6">
+              <h2 className="text-2xl font-bold dark:text-white">VPN Orders</h2>
+              {vpnOrders.map(o => (
+                <div key={o.id} className="p-4 border rounded-2xl dark:border-slate-800 dark:text-white flex justify-between items-center">
+                  <div>
+                    <p className="font-bold">{o.vpnName} - {o.userEmail}</p>
+                    <p className="text-xs text-slate-500">TXID: {o.transactionId} | Status: {o.status}</p>
+                  </div>
+                  {o.status === 'PENDING' && (
+                    <div className="flex gap-2">
+                      <button onClick={() => reviewVpnOrder(o.id, 'VERIFIED')} className="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Verify</button>
+                      <button onClick={() => reviewVpnOrder(o.id, 'REJECTED')} className="bg-rose-600 text-white px-3 py-1 rounded-lg text-xs font-bold">Reject</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+           </div>
+        )}
+
+        {activeTab === 'deploy' && (
+          <div className="space-y-8 animate-fadeIn">
+            <h2 className="text-2xl font-bold dark:text-white">Publish & Data Management</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border dark:border-slate-700">
+                <h3 className="font-bold mb-4 dark:text-white">🚀 Publish Status</h3>
+                <p className="text-sm text-slate-500 mb-4">You are currently running the application in a local storage environment. To persist data across browsers, connect a database.</p>
+                <button onClick={() => alert('Vercel Deploy Triggered conceptually')} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold">Deploy to Production</button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                  <h3 className="font-bold mb-2 dark:text-indigo-200">💾 Backup Data</h3>
+                  <button onClick={exportData} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Export JSON</button>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-800">
+                  <h3 className="font-bold mb-2 dark:text-emerald-200">📥 Restore Data</h3>
+                  <input type="file" accept=".json" onChange={importData} className="text-sm dark:text-white block w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
